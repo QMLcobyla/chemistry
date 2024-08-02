@@ -22,6 +22,7 @@ from qiskit_algorithms.optimizers import SLSQP, SPSA, COBYLA
 from qiskit_aer.noise import NoiseModel
 
 from IPython.display import display
+from datetime import datetime
 
 
 from other_functions import *
@@ -36,7 +37,7 @@ class MoleculeManager():
   def __init__(
       self,
       molecule: MoleculeInfo,
-      optimizer=COBYLA(maxiter=500, tol=0.0001),
+      optimizer=SLSQP(maxiter=10), # COBYLA(maxiter=500, tol=0.0001),
 
   ):
     self.molecule = molecule
@@ -66,14 +67,17 @@ class MoleculeManager():
 
 
 
-  def FindEnergyIdeal(self, print_energy=True, print_ansatz=True, print_circuit_info=True):
+  def FindEnergyIdeal(self, print_energy=True, print_ansatz=True, print_circuit_info=True, debug_mode=False):
     '''
     returns vqe_result -- ground state energy value (float)
     '''
+    if (debug_mode):
+      current_time = datetime.now().time()
+      print(f'FindEnergyIdeal started, {current_time.strftime("%H:%M:%S")}')
 
     exact_energies = []
     vqe_energies = []
-    optimizer = SLSQP(maxiter=10)
+    optimizer = self.optimizer
     noiseless_estimator = Estimator(approximation=True)
     (qubit_op, num_particles, num_spatial_orbitals, problem, mapper) = get_qubit_op(self.molecule)
 
@@ -83,14 +87,34 @@ class MoleculeManager():
     ansatz = UCCSD(
         num_spatial_orbitals, num_particles, mapper, initial_state=init_state
     )
+    
+    if (debug_mode):
+      current_time = datetime.now().time()
+      print(f'ansatz initialized, {current_time.strftime("%H:%M:%S")}')
+      print(f'ansatz.depth = {ansatz.depth()}')
+      print(f'num of qubits = {ansatz.num_qubits}')
+      
     vqe = VQE(
         noiseless_estimator,
         ansatz,
         optimizer,
         initial_point=[0] * ansatz.num_parameters,
     )
+
+    if (debug_mode):
+      current_time = datetime.now().time()
+      print(f'VQE initialized, {current_time.strftime("%H:%M:%S")}')
+
     vqe_calc = vqe.compute_minimum_eigenvalue(qubit_op)
+    if (debug_mode):
+      current_time = datetime.now().time()
+      print(f'VQE compute_minimum_eigenvaluse done, {current_time.strftime("%H:%M:%S")}')
+
     vqe_result = problem.interpret(vqe_calc).total_energies[0].real
+
+    if (debug_mode):
+      current_time = datetime.now().time()
+      print(f'VQE result interpreted, {current_time.strftime("%H:%M:%S")}')
     vqe_energies.append(vqe_result)
     
     if (print_ansatz):
@@ -107,6 +131,25 @@ class MoleculeManager():
       )
       self.print_interatomic_distance()    
     return vqe_result
+
+
+  def FindExactEnergy(self, print_result=True, debug_mode=False):
+    '''
+
+    '''
+    if (debug_mode):
+      current_time = datetime.now().time()
+      print(f'FindEnergyIdeal started, {current_time.strftime("%H:%M:%S")}')
+
+    optimizer = self.optimizer
+    noiseless_estimator = Estimator(approximation=True)
+    (qubit_op, num_particles, num_spatial_orbitals, problem, mapper) = get_qubit_op(self.molecule)
+
+    result = exact_solver(qubit_op, problem)
+    if (print_result):
+      print(result)
+      print(result.total_energies[0].real)  
+    return result.total_energies[0].real
 
 
   def FindEnergyNoisy(self):
