@@ -343,8 +343,8 @@
     },
     {
       "type": "text",
-      "version": 458,
-      "versionNonce": 2061199767,
+      "version": 459,
+      "versionNonce": 1592667511,
       "isDeleted": false,
       "id": "R9jvN4nEtF5YaLy5XzYeJ",
       "fillStyle": "solid",
@@ -364,7 +364,7 @@
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1722529728190,
+      "updated": 1722584682770,
       "link": null,
       "locked": false,
       "fontSize": 20.451854113875783,
@@ -375,7 +375,7 @@
       "containerId": null,
       "originalText": "Отримаємо виміри енергій, \"ручками\" \nпорівнюємо і робимо висновки",
       "lineHeight": 1.25,
-      "baseline": 45
+      "baseline": 43
     },
     {
       "type": "rectangle",
@@ -829,8 +829,8 @@
     },
     {
       "type": "text",
-      "version": 581,
-      "versionNonce": 1122700375,
+      "version": 582,
+      "versionNonce": 1886308729,
       "isDeleted": false,
       "id": "0Df8s8zBko30lNv0rLlmI",
       "fillStyle": "solid",
@@ -850,7 +850,7 @@
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1722529728191,
+      "updated": 1722584682770,
       "link": null,
       "locked": false,
       "fontSize": 20.451854113875783,
@@ -861,7 +861,7 @@
       "containerId": null,
       "originalText": "цикл по відстанях між атомами, \nфіксуємо результати, будуємо \nграфіки, робимо висновки",
       "lineHeight": 1.25,
-      "baseline": 70
+      "baseline": 68
     },
     {
       "type": "rectangle",
@@ -1226,8 +1226,8 @@
     },
     {
       "type": "text",
-      "version": 692,
-      "versionNonce": 1898280439,
+      "version": 693,
+      "versionNonce": 701982359,
       "isDeleted": false,
       "id": "9GGPjpMboOZWfbDnQ56Ml",
       "fillStyle": "solid",
@@ -1247,7 +1247,7 @@
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1722529728191,
+      "updated": 1722584682771,
       "link": null,
       "locked": false,
       "fontSize": 20.451854113875783,
@@ -1258,7 +1258,7 @@
       "containerId": null,
       "originalText": "просто зручна фунція.\nдемонструємо приклади використання",
       "lineHeight": 1.25,
-      "baseline": 45
+      "baseline": 43
     },
     {
       "type": "rectangle",
