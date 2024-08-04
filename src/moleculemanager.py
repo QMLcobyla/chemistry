@@ -67,7 +67,7 @@ class MoleculeManager():
 
 
 
-  def FindEnergyIdeal(self, print_energy=True, print_ansatz=True, print_circuit_info=True, debug_mode=False):
+  def FindEnergyIdeal(self, print_energy=True, print_ansatz=False, print_circuit_info=True, debug_mode=False):
     '''
     returns vqe_result -- ground state energy value (float)
     '''
