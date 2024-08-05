@@ -14,6 +14,7 @@ from qiskit_nature.second_q.formats.molecule_info import MoleculeInfo
 from qiskit_nature.second_q.mappers import ParityMapper, JordanWignerMapper
 from qiskit_nature.second_q.circuit.library import UCCSD, HartreeFock
 from qiskit_nature.second_q.drivers import PySCFDriver
+from qiskit_nature.second_q.problems import ElectronicStructureResult
 import matplotlib.pyplot as plt
 from qiskit.circuit.library import EfficientSU2
 from qiskit_aer.primitives import Estimator
@@ -25,30 +26,31 @@ from IPython.display import display
 from datetime import datetime
 
 
-from other_functions import *
+from src.helpers import *
 
 np.random.seed(999999)
 
 class MoleculeManager():
   '''
   MoleculeManager\n
-
+  MoleculeInfo(
+    symbols=["Li", "O", "H"],
+    coords=([-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
+    multiplicity=1,  # = 2*spin + 1
+    charge=0,
+  )
   '''
   def __init__(
       self,
       molecule: MoleculeInfo,
-      optimizer=SLSQP(maxiter=10), # COBYLA(maxiter=500, tol=0.0001),
+      name = None,
 
   ):
     self.molecule = molecule
-    self.optimizer = optimizer
-
-
-  def SetDualAtomDist(self, dist: float):
-    '''
-    Sets a distance between atoms of a molecule of two atoms
-    '''
-    self.molecule.coords=([0.0, 0.0, 0.0], [dist, 0.0, 0.0])
+    if (name is None):
+      self.name = "".join(self.molecule.symbols)
+    else:
+      self.name = name
 
 
   def SetAtomCoords(self, coords):
@@ -67,108 +69,134 @@ class MoleculeManager():
 
 
 
-  def FindEnergyIdeal(self, print_energy=True, print_ansatz=False, print_circuit_info=True, debug_mode=False):
+  def FindGroundStateExactSolver(
+    self,
+    orbitals_to_remove=[],
+    mapper_type=ParityMapper,
+    output_info=True,
+    timestamps=True,
+    # noisy_mode=False,
+    # noisy_device = FakeKolkata(),
+  ) -> ElectronicStructureResult:
     '''
-    returns vqe_result -- ground state energy value (float)
+    Orbitals_to_remove: indeces of orbitals that will be frozen in addition to removed by default by FreezeCoreTransformer.\n
     '''
-    if (debug_mode):
-      current_time = datetime.now().time()
-      print(f'FindEnergyIdeal started, {current_time.strftime("%H:%M:%S")}')
+    if (timestamps):
+      print(f'{(datetime.now().time()).strftime("%H:%M:%S")} FindGroundStateExactSolver started.')
 
-    exact_energies = []
-    vqe_energies = []
-    optimizer = self.optimizer
-    noiseless_estimator = Estimator(approximation=True)
-    (qubit_op, num_particles, num_spatial_orbitals, problem, mapper) = get_qubit_op(self.molecule)
+    properties_molecule = self.get_problem()
+    problem = get_freezed_problem(properties_molecule, orbitals_to_remove)    
+    num_particles = problem.num_particles
+    mapper = mapper_type(num_particles=num_particles)
+    qubit_op = mapper.map(problem.second_q_ops()[0])
+    exact_result = exact_solver(qubit_op, problem)
+    if (output_info):
+      print('Exact result:')
+      print(exact_result)
+    if (timestamps):
+      print(f'{(datetime.now().time()).strftime("%H:%M:%S")} FindGroundStateExactSolver done.')
+    return exact_result
+    
+  
+  def FindGroundStateVQE(
+    self,
+    orbitals_to_remove=[],
+    mapper_type=ParityMapper,
+    ansatz_type=UCCSD,
+    optimizer_type=COBYLA(maxiter=15, tol=0.0001),
+    output_info=True,
+    timestamps=True,
+    noisy_mode=False,
+    noisy_device = FakeKolkata(),    
+  )-> ElectronicStructureResult:
+    '''
+    Orbitals_to_remove: indeces of orbitals that will be frozen in addition to removed by default by FreezeCoreTransformer.\n 
+    Note: params of noisy device are only considered if 'noisy_mode=True'.\n
+    '''
+    if (timestamps):
+      print(f'{(datetime.now().time()).strftime("%H:%M:%S")} FindGroundStateVQE started.')
 
-    result = exact_solver(qubit_op, problem)
-    exact_energies.append(result.total_energies[0].real)
+    properties_molecule = self.get_problem()
+    problem = get_freezed_problem(properties_molecule, orbitals_to_remove)
+    if (noisy_mode):
+      coupling_map = noisy_device.configuration().coupling_map
+      noise_model = NoiseModel.from_backend(noisy_device)
+      estimator = Estimator(
+        backend_options={"coupling_map": coupling_map, "noise_model": noise_model}
+      )
+    else:
+      estimator = Estimator(approximation=True)
+    
+    num_particles = problem.num_particles
+    num_spatial_orbitals = problem.num_spatial_orbitals
+    mapper = mapper_type(num_particles=num_particles)
+    qubit_op = mapper.map(problem.second_q_ops()[0])
     init_state = HartreeFock(num_spatial_orbitals, num_particles, mapper)
-    ansatz = UCCSD(
+    # TODO: maybe try EfficientSU2 instead of UCCSD
+    ansatz = ansatz_type(
         num_spatial_orbitals, num_particles, mapper, initial_state=init_state
     )
-    
-    if (debug_mode):
-      current_time = datetime.now().time()
-      print(f'ansatz initialized, {current_time.strftime("%H:%M:%S")}')
+    if (timestamps):
+      print(f'{(datetime.now().time()).strftime("%H:%M:%S")} ansatz initialized')
+    if (output_info):
       print(f'ansatz.depth = {ansatz.depth()}')
       print(f'num of qubits = {ansatz.num_qubits}')
-      
+    
     vqe = VQE(
-        noiseless_estimator,
-        ansatz,
-        optimizer,
-        initial_point=[0] * ansatz.num_parameters,
-    )
-
-    if (debug_mode):
-      current_time = datetime.now().time()
-      print(f'VQE initialized, {current_time.strftime("%H:%M:%S")}')
-
-    vqe_calc = vqe.compute_minimum_eigenvalue(qubit_op)
-    if (debug_mode):
-      current_time = datetime.now().time()
-      print(f'VQE compute_minimum_eigenvaluse done, {current_time.strftime("%H:%M:%S")}')
-
-    vqe_result = problem.interpret(vqe_calc).total_energies[0].real
-
-    if (debug_mode):
-      current_time = datetime.now().time()
-      print(f'VQE result interpreted, {current_time.strftime("%H:%M:%S")}')
-    vqe_energies.append(vqe_result)
-    
-    if (print_ansatz):
-      display(ansatz.decompose().decompose().draw(fold=-1))
-    if (print_circuit_info):
-      print(f'ansatz.depth = {ansatz.depth()}')
-      print(f'num of qubits = {ansatz.num_qubits}')
-    if (print_energy):
-      print(result)
-      print(
-          f"### TODO! what's the difference between VQE Result and Exact energy?\n",
-          f"VQE Result: {vqe_result:.5f}\n",
-          f"Exact Energy: {exact_energies[-1]:.5f}\n",
+          estimator,
+          ansatz,
+          optimizer_type,
+          initial_point=[0] * ansatz.num_parameters,
       )
-      self.print_interatomic_distance()    
-    return vqe_result
-
-
-  def FindExactEnergy(self, print_result=True, debug_mode=False):
-    '''
-
-    '''
-    if (debug_mode):
-      current_time = datetime.now().time()
-      print(f'FindEnergyIdeal started, {current_time.strftime("%H:%M:%S")}')
-
-    optimizer = self.optimizer
-    noiseless_estimator = Estimator(approximation=True)
-    (qubit_op, num_particles, num_spatial_orbitals, problem, mapper) = get_qubit_op(self.molecule)
-
-    result = exact_solver(qubit_op, problem)
-    if (print_result):
-      print(result)
-      print(result.total_energies[0].real)  
-    return result.total_energies[0].real
-
-
-  def FindEnergyNoisy(self):
-    exact_energies = []
-    vqe_energies = []
-    device = FakeKolkata()
-    coupling_map = device.configuration().coupling_map
-    noise_model = NoiseModel.from_backend(device)
-    noisy_estimator = Estimator(
-        backend_options={"coupling_map": coupling_map, "noise_model": noise_model}
-    )
-    (qubit_op, num_particles, num_spatial_orbitals, problem, mapper) = get_qubit_op(self.molecule)
-    result = exact_solver(qubit_op, problem)
-    exact_energies.append(result.total_energies)
-
-    print("Exact Result:", result.total_energies)
-    optimizer = SPSA(maxiter=100)
-    var_form = EfficientSU2(qubit_op.num_qubits, entanglement="linear")
-    vqe = VQE(noisy_estimator, var_form, optimizer)
     vqe_calc = vqe.compute_minimum_eigenvalue(qubit_op)
-    vqe_result = problem.interpret(vqe_calc).total_energies
-    print("VQE Result:", vqe_result)
+    if (timestamps):
+      print(f'{(datetime.now().time()).strftime("%H:%M:%S")} VQE compute_minimum_eigenvalue done')
+
+    vqe_result = problem.interpret(vqe_calc)
+    if (output_info):
+      print('VQE result:')
+      print(vqe_result)
+    if (timestamps):
+      print(f'{(datetime.now().time()).strftime("%H:%M:%S")} FindGroundStateVQE done.')
+    return vqe_result
+      
+  
+  def Experiment(
+    self,
+    orbitals_to_remove=[],
+    mapper_type=ParityMapper,
+    ansatz_type=UCCSD,
+    optimizer_type=COBYLA(maxiter=15, tol=0.0001),
+    output_info=True,
+    timestamps=True,
+    noisy_mode=False,
+    noisy_device = FakeKolkata(),     
+  ) -> tuple[ElectronicStructureResult, ElectronicStructureResult]:
+    '''
+    returns tuple (ExactResult, VQEResult)\n
+    Orbitals_to_remove: indeces of orbitals that will be frozen in addition to removed by default by FreezeCoreTransformer.\n 
+    Note: params of noisy device are only considered if 'noisy_mode=True'.\n
+    '''
+    return (
+      self.FindGroundStateExactSolver(
+        orbitals_to_remove=orbitals_to_remove,
+        mapper_type=mapper_type,
+        output_info=output_info,
+        timestamps=timestamps,
+      ),
+      self.FindGroundStateVQE(
+        orbitals_to_remove=orbitals_to_remove,
+        mapper_type=mapper_type,
+        ansatz_type=ansatz_type,
+        optimizer_type=optimizer_type,
+        output_info=output_info,
+        timestamps=timestamps,
+        noisy_mode=noisy_mode,
+        noisy_device=noisy_device,
+      ),
+    )
+  
+  def get_problem(self):
+    driver = PySCFDriver.from_molecule(self.molecule)
+    properties_molecule = driver.run()
+    return properties_molecule

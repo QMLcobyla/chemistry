@@ -58,7 +58,7 @@ def exact_solver(qubit_op, problem):
   return result
 
 
-def draw_orbitals(problem):
+def draw_orbitals(problem, molecule_name=None):
     # Draw orbitals (method provided by Max)
     print(f'Number of particles : {problem.num_particles}')
     print(f'Number of spatial orbitals : {problem.num_spatial_orbitals}')
@@ -76,7 +76,8 @@ def draw_orbitals(problem):
 
     ax.set_xlabel('Orbital', fontsize=15)
     ax.set_ylabel(r'$\log\left(|E|\right)$', fontsize=15)
-
+    ax.set_title(f'{molecule_name} Orbital energy')
+    
     ax.scatter(-2,2,s=15, c='tab:blue', marker='o', label='Occupied orbitals')
     ax.scatter(-2,2,s=15, c='tab:green', marker='o', label='Empty orbitals')
     ax.set_xlim(-0.2,problem.num_spatial_orbitals+0.2)
@@ -90,3 +91,78 @@ def get_freezed_problem(properties, indexes = None):
         freeze_core=True, remove_orbitals=indexes
     ).transform(properties)
 
+def plot_error(
+    vals_1,
+    vals_2,
+    domain,
+    label_x='Distance',
+    label_y='Error',
+    title='Error',
+    lower_bound=-np.Inf,
+    upper_bound=np.Inf,
+    fig_size=(10, 6),
+):
+    li = np.searchsorted(np.array(domain), lower_bound, side='right')
+    ri = np.searchsorted(np.array(domain), upper_bound, side='left')
+    vals_1 = np.array(vals_1[li:ri])
+    vals_2 = np.array(vals_2[li:ri])
+    err = np.abs(vals_1 - vals_2)
+    fig, ax = plt.subplots(figsize=fig_size)
+    ax.plot(domain[li:ri],err,'+--')
+
+    ax.set_xlabel(label_x)
+    ax.set_ylabel(label_y)
+    plt.grid()
+    plt.title(title)
+    plt.show()
+    
+    
+import random
+def generate_random_color_hex():
+    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+def plot_comparisons(
+    data,
+    labels,
+    domain=None,
+    colors = [],
+    linestyles = [],
+    lower_bound=-np.Inf,
+    upper_bound=np.Inf,
+    fig_size=(10, 6),
+    label_x='Distance',
+    label_y='Energy',
+    title=None,
+):
+    '''
+    data: [if domain=None] array of pairs [val_array, domain_array] 
+    data: [if domain != None] array of data arrays to be compared
+    domain: None if data with different domain 
+    '''
+    plt.figure(figsize=fig_size)
+    for (i, el) in enumerate(data):
+        if (domain is None):
+            vals, dom = el
+        else:
+            vals = el
+            dom = domain
+        li = np.searchsorted(np.array(dom), lower_bound, side='right')
+        ri = np.searchsorted(np.array(dom), upper_bound, side='left')
+        if (len(colors) > i):
+            col = colors[i]
+        else:
+            col = generate_random_color_hex()
+        if (len(linestyles) > i):
+            style = linestyles[i]
+        else:
+            style = 'solid'
+        
+        plt.plot(dom[li:ri], vals[li:ri], label=labels[i], linestyle=style, color=col)
+            
+    plt.title(title)
+    plt.xlabel(label_x)
+    plt.ylabel(label_y)
+    plt.grid()
+    plt.legend(loc='best')
+    plt.show()
+    

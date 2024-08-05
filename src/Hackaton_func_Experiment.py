@@ -10,7 +10,7 @@ from qiskit_aer.primitives import Sampler, Estimator
 
 from datetime import datetime
 
-from other_functions import *
+from src.helpers import *
 
 def Experiment(
   molecule,
@@ -39,6 +39,14 @@ def Experiment(
     draw_orbitals(problem)
   if (output_info):
     print('. . . . . . . . . . . . . . . . . . .\n')
+  
+  # device = FakeKolkata()
+  # coupling_map = device.configuration().coupling_map
+  # noise_model = NoiseModel.from_backend(device)
+  # estimator = Estimator(
+  #       backend_options={"coupling_map": coupling_map, "noise_model": noise_model}
+  #   )
+ 
   
   # exact solver
   estimator = Estimator(approximation=True)
